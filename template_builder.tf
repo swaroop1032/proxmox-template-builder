@@ -8,13 +8,10 @@ terraform {
   }
 }
 
-provider "proxmox" {
-  # Authentication is handled by PM_TOKEN_ID, PM_API_URL, etc., passed from Jenkins.
-}
+provider "proxmox" {}
 
 # 1. Download the latest Ubuntu 22.04 Cloud Image
 resource "proxmox_virtual_environment_download_file" "download_ubuntu_image" {
-  # Correct: content_type must be "import" for arbitrary file URLs
   content_type = "import" 
   datastore_id = var.storage_vm_disk
   node_name    = var.proxmox_node
@@ -29,13 +26,11 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
   node_name   = var.proxmox_node 
   vm_id       = var.template_vmid 
 
-  # FIX: CPU settings must be in a dedicated block
   cpu {
     cores   = var.template_cores
     sockets = 1
   }
 
-  # FIX: Memory settings must be in a dedicated block
   memory {
     dedicated = var.template_memory 
   }
@@ -45,9 +40,9 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
     model  = "virtio"
   }
   
-  # FIX: Disk block is now correctly structured for BPG
-  disk {
-    interface      = "scsi0" // Required interface type (scsi0)
+  # FIX: Disk block is replaced with the device name (scsi0) as the block name.
+  # This structure is unique to the BPG provider.
+  scsi0 {
     size           = var.template_disk_size
     storage_pool   = var.storage_vm_disk
     importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
@@ -57,17 +52,13 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
       type = "cloud-init"
   }
   
-  # FIX: Initialization block arguments are flat (no nested 'ip_config' or 'user' blocks)
-  initialization {
-    user = var.ci_default_user
-    ip_config { // Re-nested 'ip_config' based on documentation review
-      ipv4 {
-        address = "dhcp"
-      }
-    }
+  # FIX: Cloud-Init user and network configuration must be set using top-level attributes.
+  ciuser = var.ci_default_user
+  
+  ipconfig0 {
+    ip = "dhcp"
   }
 
-  # Template conversion is a top-level attribute
   template = true 
 
   depends_on = [
