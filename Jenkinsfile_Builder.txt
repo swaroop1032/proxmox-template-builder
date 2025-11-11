@@ -1,26 +1,21 @@
-// --- JENKINSFILE_BUILDER.TXT (FINAL CORRECTED VERSION) ---
+// --- Jenkinsfile_Builder.txt (Updated for telmate/proxmox authentication) ---
 pipeline {
     agent any
 
     tools {
-        terraform 'Terraform' 
+        // This 'Terraform' must match the name you configure in Jenkins Global Tool Configuration
+        terraform 'Terraform'
     }
 
     environment {
-        // 1. Fetch credentials from Jenkins store (local pipeline variables)
-        PM_TOKEN_ID_SECRET    = credentials('PROXMOX_API_TOKEN_ID')
-        PM_TOKEN_SECRET_KEY   = credentials('PROXMOX_API_TOKEN_SECRET')
-        
-        // 2. Set API URL
-        PM_API_URL_VALUE      = "https://192.168.31.180:8006/api2/json" 
-        
-        // 3. Template name for verification
-        TF_VAR_template_name_new = "ubuntu-2204-cloudinit-template-swa"
-    }
-    
-    parameters {
-        string(name: 'PROXMOX_NODE', defaultValue: 'pve', description: 'The Proxmox node where the template will be created.')
-        string(name: 'STORAGE_DISK', defaultValue: 'local-lvm', description: 'The storage pool for the template disk.')
+        // Load secrets from Jenkins credentials store
+        // The telmate provider REQUIRES these specific variable names for authentication.
+        PM_API_TOKEN_ID     = credentials('PROXMOX_API_TOKEN_ID')
+        PM_API_TOKEN_SECRET = credentials('PROXMOX_API_TOKEN_SECRET')
+
+        // Other environment variables required by the provider
+        PM_API_URL          = "https://192.168.31.180:8006/api2/json"
+        PM_TLS_INSECURE     = "true" // Needed for self-signed certificates
     }
 
     stages {
@@ -29,35 +24,27 @@ pipeline {
                 checkout scm
             }
         }
-        
+
         stage('Terraform Init') {
             steps {
+                // Initializes Terraform and downloads the new 'telmate/proxmox' provider
                 bat 'terraform init -upgrade'
             }
         }
 
-        stage('Create/Update Template') {
+        stage('Terraform Apply') {
             steps {
-                echo "Downloading Cloud Image and building template: ${env.TF_VAR_template_name_new}"
+                echo "Applying Terraform configuration using telmate/proxmox provider..."
                 
-                // CRITICAL FIX: Single-line command string for Windows 'bat' step.
-                // It satisfies both the provider's ENV requirement and Terraform's -var requirement.
-                withEnv([
-                    // Passed to the BPG Provider for authentication
-                    "PM_API_URL=${env.PM_API_URL_VALUE}",
-                    "PM_TOKEN_ID=${env.PM_TOKEN_ID_SECRET}",
-                    "PM_TOKEN_SECRET=${env.PM_TOKEN_SECRET_KEY}",
-                    "PM_TLS_INSECURE=true" 
-                ]) {
-                    // Running the command as a single string to avoid syntax issues.
-                    bat "terraform apply -auto-approve -var=\"proxmox_node=${params.PROXMOX_NODE}\" -var=\"storage_vm_disk=${params.STORAGE_DISK}\" -var=\"pm_api_url=${env.PM_API_URL_VALUE}\" -var=\"pm_api_token_id=${env.PM_TOKEN_ID_SECRET}\" -var=\"pm_api_token_secret=${env.PM_TOKEN_SECRET_KEY}\""
-                }
+                // Authentication is handled by the environment block above.
+                // Only pass the variable defaults that don't need to be secret:
+                bat 'terraform apply -auto-approve -var="proxmox_node=pve" -var="storage_vm_disk=local-lvm" -var="vm_template_name=ubuntu-2204-cloudinit-template-swa" -var="ci_default_user=terraform"'
             }
         }
-        
+
         stage('Verification') {
             steps {
-                echo "Success! The template named '${env.TF_VAR_template_name_new}' is now available on Proxmox for cloning."
+                echo "Verification stage skipped. Check Proxmox console for VM: ubuntu-vm-jenkins-XXXX"
             }
         }
     }
