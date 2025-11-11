@@ -32,9 +32,9 @@ resource "random_string" "suffix" {
 resource "proxmox_vm_qemu" "vm_from_jenkins" { 
   # --- General Settings ---
   name        = "ubuntu-vm-jenkins-${random_string.suffix.result}"
-  desc        = "Managed by Terraform and Jenkins"
+  description        = "Managed by Terraform and Jenkins"
   target_node = var.proxmox_node 
-  vmid        = 0 # Proxmox will assign a free ID
+  #vmid        = 0 # Proxmox will assign a free ID
 
   # Clones from the existing template
   clone = var.vm_template_name 
