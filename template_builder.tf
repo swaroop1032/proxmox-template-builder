@@ -40,9 +40,9 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
     model  = "virtio"
   }
   
-  # FIX: Correct BPG disk structure: must use a repeatable 'disk_device' block.
-  disk_device {
-    scsi { # Must specify the interface type (scsi)
+  # FIX: Using the plural block name 'disk_devices' is the last structural option.
+  disk_devices { 
+    scsi { # Specifies the disk interface type
       size           = var.template_disk_size
       storage_pool   = var.storage_vm_disk
       importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
@@ -53,14 +53,12 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
       type = "cloud-init"
   }
   
-  # FIX: Correct BPG initialization structure.
+  # Initialization block (documented BPG structure)
   initialization {
-    # FIX: Cloud-init user must be in a nested block.
     user_account {
       username = var.ci_default_user
     }
     
-    # FIX: Network settings use a top-level 'ip_config' block inside initialization.
     ip_config {
       ipv4 {
         address = "dhcp"
