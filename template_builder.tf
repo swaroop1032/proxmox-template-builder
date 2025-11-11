@@ -1,4 +1,4 @@
-# --- template_builder.tf (FINAL CORRECTED VERSION) ---
+# --- template_builder.tf (FINAL DEFINITIVE VERSION) ---
 terraform {
   required_providers {
     proxmox = {
@@ -43,13 +43,17 @@ resource "proxmox_vm_qemu" "vm_from_jenkins" {
   cores   = 2
   sockets = 1
   memory  = 2048 
+  
+  # Set the primary boot device at the resource level
+  bootdisk = "scsi0" 
 
-  # --- Disk (The change is here: boot = true) ---
+  # --- Disk (Corrected Structure) ---
   disk {
     storage = var.storage_vm_disk
     type    = "scsi"
     size    = "20G" 
-    boot    = true # CHANGED: Must be a boolean (true/false), not an integer (1/0)
+    slot    = 0 # Added slot to define disk position
+    # Removed the invalid 'boot = true' line
   }
   
   # --- Network ---
