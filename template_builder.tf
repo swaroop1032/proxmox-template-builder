@@ -40,19 +40,22 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
     model  = "virtio"
   }
   
-  # FIX: The disk configuration must be flattened inside the 'disk' block.
+  # FIX: Restructure to single disk block with interface type nested, 
+  # moving storage_pool and importing_file inside the disk type block.
   disk { 
-    interface = "scsi0" # This satisfies the missing 'interface' argument error.
-    size           = var.template_disk_size
-    storage_pool   = var.storage_vm_disk
-    importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
+    scsi { # Disk interface type block (e.g., scsi, sata, virtio)
+      interface = "scsi0" # This specifies the full interface
+      size = var.template_disk_size
+      storage_pool = var.storage_vm_disk
+      importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
+    }
   }
 
   operating_system {
       type = "cloud-init"
   }
   
-  # Initialization block (documented BPG structure)
+  # Initialization block (This nested BPG structure has not shown errors)
   initialization {
     user_account {
       username = var.ci_default_user
