@@ -40,9 +40,11 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
     model  = "virtio"
   }
   
-  # FIX: Using the plural block name 'disk_devices' is the last structural option.
-  disk_devices { 
-    scsi { # Specifies the disk interface type
+  # FIX: Using the singular 'disk' block, with a nested disk type block (scsi).
+  disk { 
+    scsi {
+      # The interface name is an attribute inside the disk type block.
+      interface = "scsi0" 
       size           = var.template_disk_size
       storage_pool   = var.storage_vm_disk
       importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
@@ -53,7 +55,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
       type = "cloud-init"
   }
   
-  # Initialization block (documented BPG structure)
+  # FIX: Using the nested initialization block (most documented BPG approach)
   initialization {
     user_account {
       username = var.ci_default_user
