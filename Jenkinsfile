@@ -6,7 +6,7 @@ def ISO_FILENAME = "ubuntu-22.04.4-live-server-amd64.iso"
 def ISO_URL = "https://releases.ubuntu.com/22.04.4/${ISO_FILENAME}"
 
 pipeline {
-    agent { label 'your-jenkins-agent-label' } // Specify agent if necessary
+    agent any // Specify agent if necessary
     
     // Assumes PROXMOX_NODE is set in your environment block (e.g., 'pve')
     // and PROXMOX_HOST is the IP (e.g., '192.168.1.180')
