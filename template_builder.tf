@@ -1,4 +1,4 @@
-# --- TEMPLATE_BUILDER.TF (FINAL CORRECTED VERSION FOR BPG PROVIDER) ---
+# --- TEMPLATE_BUILDER.TF (FINAL CORRECTED VERSION FOR BPG PROVIDER SCHEMA) ---
 terraform {
   required_providers {
     proxmox = {
@@ -9,12 +9,12 @@ terraform {
 }
 
 provider "proxmox" {
-  # Authentication is handled by PM_TOKEN_ID, PM_API_URL, etc., passed from Jenkins environment variables.
+  # Authentication is handled by PM_TOKEN_ID, PM_API_URL, etc., passed from Jenkins.
 }
 
 # 1. Download the latest Ubuntu 22.04 Cloud Image
 resource "proxmox_virtual_environment_download_file" "download_ubuntu_image" {
-  # !!! THE FINAL FIX: Must be "import" for arbitrary file URLs, as the error indicated.
+  # FIX: content_type must be "import" for arbitrary file URLs
   content_type = "import" 
   datastore_id = var.storage_vm_disk
   node_name    = var.proxmox_node
@@ -22,45 +22,53 @@ resource "proxmox_virtual_environment_download_file" "download_ubuntu_image" {
   file_name    = var.image_file_name
 }
 
-# 2. Use the BPG provider's correct resource type: proxmox_virtual_environment_vm
+# 2. Configure the VM and convert it to a template (using BPG resource)
 resource "proxmox_virtual_environment_vm" "ubuntu_template" {
   name        = var.template_name_new
-  desc        = "Automated Base Cloud-Init Template (22.04)"
+  # FIX: BPG uses "description" instead of "desc"
+  description = "Automated Base Cloud-Init Template (22.04)" 
   node_name   = var.proxmox_node 
   vm_id       = var.template_vmid 
 
-  cores   = var.template_cores
-  sockets = 1
-  memory  = var.template_memory
+  # FIX: CPU settings must be in a dedicated block
+  cpu {
+    cores   = var.template_cores
+    sockets = 1
+  }
+
+  # FIX: Memory settings must be in a dedicated block
+  memory {
+    dedicated = var.template_memory 
+  }
   
   network_device {
     bridge = var.network_bridge
     model  = "virtio"
   }
   
+  # FIX: Disk block structure for BPG
   disk {
-    device        = "scsi0"
-    storage_pool  = var.storage_vm_disk
-    size          = var.template_disk_size
+    # FIX: "interface" is required in the disk block (e.g., scsi0, ide0)
+    interface = "scsi0" 
+    size      = var.template_disk_size
     
-    # BPG uses 'importing_file' to reference the downloaded file
-    importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
+    # FIX: Storage and file import are configured in a nested block
+    storage {
+      storage_pool = var.storage_vm_disk
+      importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
+    }
   }
 
-  # BPG Cloud-Init block structure
-  cloud_init {
-    user = var.ci_default_user
-    data_store_id = var.storage_vm_disk 
-  }
-  
+  # OS must be set to cloud-init
   operating_system {
       type = "cloud-init"
   }
+  
+  # FIX: Cloud-init user is a top-level attribute
+  cloud_init_user = var.ci_default_user
 
-  # BPG converts to template via post_create_action
-  post_create_action {
-      template = true
-  }
+  # Template conversion is a top-level attribute (no post_create_action block)
+  template = true 
 
   depends_on = [
     proxmox_virtual_environment_download_file.download_ubuntu_image
