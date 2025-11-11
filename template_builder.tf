@@ -14,7 +14,7 @@ provider "proxmox" {
 
 # 1. Download the latest Ubuntu 22.04 Cloud Image
 resource "proxmox_virtual_environment_download_file" "download_ubuntu_image" {
-  # FIX: content_type must be "import" for arbitrary file URLs
+  # Correct: content_type must be "import" for arbitrary file URLs
   content_type = "import" 
   datastore_id = var.storage_vm_disk
   node_name    = var.proxmox_node
@@ -25,7 +25,6 @@ resource "proxmox_virtual_environment_download_file" "download_ubuntu_image" {
 # 2. Configure the VM and convert it to a template (using BPG resource)
 resource "proxmox_virtual_environment_vm" "ubuntu_template" {
   name        = var.template_name_new
-  # FIX: BPG uses "description" instead of "desc"
   description = "Automated Base Cloud-Init Template (22.04)" 
   node_name   = var.proxmox_node 
   vm_id       = var.template_vmid 
@@ -46,28 +45,28 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
     model  = "virtio"
   }
   
-  # FIX: Disk block structure for BPG
+  # FIX: Disk block is FLAT. All storage and file attributes are here.
   disk {
-    # FIX: "interface" is required in the disk block (e.g., scsi0, ide0)
-    interface = "scsi0" 
-    size      = var.template_disk_size
-    
-    # FIX: Storage and file import are configured in a nested block
-    storage {
-      storage_pool = var.storage_vm_disk
-      importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
-    }
+    interface      = "scsi0" // Required interface type
+    size           = var.template_disk_size
+    storage_pool   = var.storage_vm_disk // Storage pool is now a direct attribute
+    importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name // File import is a direct attribute
   }
 
-  # OS must be set to cloud-init
   operating_system {
       type = "cloud-init"
   }
   
-  # FIX: Cloud-init user is a top-level attribute
-  cloud_init_user = var.ci_default_user
+  # FIX: Cloud-init user and networking must be in the 'initialization' block
+  initialization {
+    user = var.ci_default_user
+    # Add a default IP configuration to ensure network is enabled for cloud-init
+    ip_config {
+      ip = "dhcp" 
+    }
+  }
 
-  # Template conversion is a top-level attribute (no post_create_action block)
+  # Template conversion is a top-level attribute
   template = true 
 
   depends_on = [
