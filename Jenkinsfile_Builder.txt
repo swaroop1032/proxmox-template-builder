@@ -1,0 +1,53 @@
+// --- JENKINSFILE_BUILDER.TXT (Jenkins Job 1: Creates the Template) ---
+pipeline {
+    agent any
+
+    tools {
+        terraform 'Terraform'
+    }
+
+    environment {
+        // Load secrets from Jenkins credentials store (Must match VM Provisioner credentials)
+        TF_VAR_pm_api_token_id     = credentials('PROXMOX_API_TOKEN_ID')
+        TF_VAR_pm_api_token_secret = credentials('PROXMOX_API_TOKEN_SECRET')
+        TF_VAR_pm_api_url          = "https://192.168.31.180:8006/api2/json" // Your API URL
+    }
+    
+    // Allow overriding infrastructure defaults at build time
+    parameters {
+        string(name: 'PROXMOX_NODE', defaultValue: 'pve', description: 'The Proxmox node where the template will be created.')
+        string(name: 'STORAGE_DISK', defaultValue: 'local-lvm', description: 'The storage pool for the template disk.')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Terraform Init') {
+            steps {
+                bat 'terraform init -upgrade'
+            }
+        }
+
+        stage('Create/Update Template') {
+            steps {
+                echo "Downloading Cloud Image and building template: ${env.TF_VAR_template_name_new}"
+                // Apply the template creation logic, overriding defaults from the Jenkins parameters
+                bat """
+                terraform apply -auto-approve template_builder.tf \\
+                    -var='proxmox_node=${params.PROXMOX_NODE}' \\
+                    -var='storage_vm_disk=${params.STORAGE_DISK}'
+                """
+            }
+        }
+        
+        stage('Verification') {
+            steps {
+                echo "Success! The template named '${env.TF_VAR_template_name_new}' is now available on Proxmox."
+            }
+        }
+    }
+}
