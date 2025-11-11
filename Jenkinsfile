@@ -12,7 +12,7 @@ pipeline {
     // and PROXMOX_HOST is the IP (e.g., '192.168.1.180')
     environment {
         // ... other environment variables ...
-        PROXMOX_HOST = "192.168.1.180" 
+        PROXMOX_HOST = "192.168.31.180" 
         PROXMOX_USER = "root"
         STORAGE_ID   = "local" // Storage pool ID for ISOs (e.g., local, iso-storage)
     }
@@ -23,7 +23,7 @@ pipeline {
         stage('Upload ISO to Proxmox') {
             steps {
                 // IMPORTANT: Change 'your-ssh-credential-id' to your actual Jenkins SSH Credential ID
-                sshagent(['your-ssh-credential-id']) { 
+                sshagent(['ssh-credential-id']) { 
                     
                     // 1. Download the ISO to the Jenkins workspace (for local transfer)
                     echo "Downloading ISO file: ${ISO_FILENAME}..."
