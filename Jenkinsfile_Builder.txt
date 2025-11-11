@@ -1,22 +1,28 @@
-// --- JENKINSFILE_BUILDER.TXT (Jenkins Job 1: Creates the Template) ---
+// --- JENKINSFILE_BUILDER.TXT ---
 pipeline {
     agent any
 
     tools {
-        terraform 'Terraform'
+        // Ensure this name 'Terraform' matches your Jenkins Global Tool Configuration
+        terraform 'Terraform' 
     }
 
     environment {
-        // Load secrets from Jenkins credentials store (Must match VM Provisioner credentials)
+        // Load secrets from Jenkins credentials store (REQUIRED)
         TF_VAR_pm_api_token_id     = credentials('PROXMOX_API_TOKEN_ID')
         TF_VAR_pm_api_token_secret = credentials('PROXMOX_API_TOKEN_SECRET')
-        TF_VAR_pm_api_url          = "https://192.168.31.180:8006/api2/json" // Your API URL
+        
+        // Infrastructure URL (Update with your Proxmox API address)
+        TF_VAR_pm_api_url          = "https://192.168.31.180:8006/api2/json" 
+        
+        // Define the template name here so the Verification stage can use it
+        TF_VAR_template_name_new   = "ubuntu-2204-cloudinit-template-swa"
     }
     
-    // Allow overriding infrastructure defaults at build time
+    // Define parameters that the user can override when starting the job
     parameters {
         string(name: 'PROXMOX_NODE', defaultValue: 'pve', description: 'The Proxmox node where the template will be created.')
-        string(name: 'STORAGE_DISK', defaultValue: 'local-lvm', description: 'The storage pool for the template disk.')
+        string(name: 'STORAGE_DISK', defaultValue: 'local-lvm', description: 'The storage pool for the template disk (e.g., local-lvm, SSD-Pool).')
     }
 
     stages {
@@ -28,6 +34,7 @@ pipeline {
         
         stage('Terraform Init') {
             steps {
+                // Initializes Terraform and downloads required providers
                 bat 'terraform init -upgrade'
             }
         }
@@ -35,18 +42,18 @@ pipeline {
         stage('Create/Update Template') {
             steps {
                 echo "Downloading Cloud Image and building template: ${env.TF_VAR_template_name_new}"
-                // Apply the template creation logic, overriding defaults from the Jenkins parameters
-                bat """
-                terraform apply -auto-approve template_builder.tf \\
-                    -var='proxmox_node=${params.PROXMOX_NODE}' \\
-                    -var='storage_vm_disk=${params.STORAGE_DISK}'
-                """
+                
+                // *** FIX APPLIED HERE ***
+                // Using a single-line 'bat' command with double quotes ("") for variables.
+                // This ensures correct parsing by the Windows Command Prompt (cmd.exe).
+                // terraform apply applies all *.tf files, so we don't need to specify template_builder.tf
+                bat "terraform apply -auto-approve -var=\"proxmox_node=${params.PROXMOX_NODE}\" -var=\"storage_vm_disk=${params.STORAGE_DISK}\""
             }
         }
         
         stage('Verification') {
             steps {
-                echo "Success! The template named '${env.TF_VAR_template_name_new}' is now available on Proxmox."
+                echo "Success! The template named '${env.TF_VAR_template_name_new}' is now available on Proxmox for cloning."
             }
         }
     }
