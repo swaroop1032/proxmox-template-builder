@@ -1,28 +1,26 @@
-// --- JENKINSFILE_BUILDER.TXT ---
+// --- JENKINSFILE_BUILDER.TXT (FINAL CORRECTED VERSION) ---
 pipeline {
     agent any
 
     tools {
-        // Ensure this name 'Terraform' matches your Jenkins Global Tool Configuration
         terraform 'Terraform' 
     }
 
     environment {
-        // Load secrets from Jenkins credentials store (REQUIRED)
-        TF_VAR_pm_api_token_id     = credentials('PROXMOX_API_TOKEN_ID')
-        TF_VAR_pm_api_token_secret = credentials('PROXMOX_API_TOKEN_SECRET')
+        // 1. Fetch credentials from Jenkins store (local pipeline variables)
+        PM_TOKEN_ID_SECRET    = credentials('PROXMOX_API_TOKEN_ID')
+        PM_TOKEN_SECRET_KEY   = credentials('PROXMOX_API_TOKEN_SECRET')
         
-        // Infrastructure URL (Update with your Proxmox API address)
-        TF_VAR_pm_api_url          = "https://192.168.31.180:8006/api2/json" 
+        // 2. Set API URL
+        PM_API_URL_VALUE      = "https://192.168.31.180:8006/api2/json" 
         
-        // Define the template name here so the Verification stage can use it
-        TF_VAR_template_name_new   = "ubuntu-2204-cloudinit-template-swa"
+        // 3. Template name for verification
+        TF_VAR_template_name_new = "ubuntu-2204-cloudinit-template"
     }
     
-    // Define parameters that the user can override when starting the job
     parameters {
         string(name: 'PROXMOX_NODE', defaultValue: 'pve', description: 'The Proxmox node where the template will be created.')
-        string(name: 'STORAGE_DISK', defaultValue: 'local-lvm', description: 'The storage pool for the template disk (e.g., local-lvm, SSD-Pool).')
+        string(name: 'STORAGE_DISK', defaultValue: 'local-lvm', description: 'The storage pool for the template disk.')
     }
 
     stages {
@@ -34,7 +32,6 @@ pipeline {
         
         stage('Terraform Init') {
             steps {
-                // Initializes Terraform and downloads required providers
                 bat 'terraform init -upgrade'
             }
         }
@@ -43,11 +40,19 @@ pipeline {
             steps {
                 echo "Downloading Cloud Image and building template: ${env.TF_VAR_template_name_new}"
                 
-                // *** FIX APPLIED HERE ***
-                // Using a single-line 'bat' command with double quotes ("") for variables.
-                // This ensures correct parsing by the Windows Command Prompt (cmd.exe).
-                // terraform apply applies all *.tf files, so we don't need to specify template_builder.tf
-                bat "terraform apply -auto-approve -var=\"proxmox_node=${params.PROXMOX_NODE}\" -var=\"storage_vm_disk=${params.STORAGE_DISK}\""
+                // CRITICAL FIX: Use withEnv to map local variables to the 
+                // environment variables that the bpg/proxmox provider expects.
+                withEnv([
+                    "PM_API_URL=${env.PM_API_URL_VALUE}",
+                    "PM_TOKEN_ID=${env.PM_TOKEN_ID_SECRET}",
+                    "PM_TOKEN_SECRET=${env.PM_TOKEN_SECRET_KEY}",
+                    // The BPG provider usually defaults to secure TLS. 
+                    // If you have self-signed certs, you might need to export:
+                    "PM_TLS_INSECURE=true" 
+                ]) {
+                    // Running the command in the environment with the correct auth vars
+                    bat "terraform apply -auto-approve -var=\"proxmox_node=${params.PROXMOX_NODE}\" -var=\"storage_vm_disk=${params.STORAGE_DISK}\""
+                }
             }
         }
         
