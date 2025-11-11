@@ -40,8 +40,8 @@ pipeline {
             steps {
                 echo "Downloading Cloud Image and building template: ${env.TF_VAR_template_name_new}"
                 
-                // CRITICAL FIX: The required variables must be passed 
-                // via -var flags to satisfy Terraform's plan stage AND via ENV VARS for the provider.
+                // CRITICAL FIX: Single-line command string for Windows 'bat' step.
+                // It satisfies both the provider's ENV requirement and Terraform's -var requirement.
                 withEnv([
                     // Passed to the BPG Provider for authentication
                     "PM_API_URL=${env.PM_API_URL_VALUE}",
@@ -49,15 +49,8 @@ pipeline {
                     "PM_TOKEN_SECRET=${env.PM_TOKEN_SECRET_KEY}",
                     "PM_TLS_INSECURE=true" 
                 ]) {
-                    // Running the command with ALL required variables supplied via -var flags
-                    bat """
-                    terraform apply -auto-approve \\
-                        -var=\"proxmox_node=${params.PROXMOX_NODE}\" \\
-                        -var=\"storage_vm_disk=${params.STORAGE_DISK}\" \\
-                        -var=\"pm_api_url=${env.PM_API_URL_VALUE}\" \\
-                        -var=\"pm_api_token_id=${env.PM_TOKEN_ID_SECRET}\" \\
-                        -var=\"pm_api_token_secret=${env.PM_TOKEN_SECRET_KEY}\"
-                    """
+                    // Running the command as a single string to avoid syntax issues.
+                    bat "terraform apply -auto-approve -var=\"proxmox_node=${params.PROXMOX_NODE}\" -var=\"storage_vm_disk=${params.STORAGE_DISK}\" -var=\"pm_api_url=${env.PM_API_URL_VALUE}\" -var=\"pm_api_token_id=${env.PM_TOKEN_ID_SECRET}\" -var=\"pm_api_token_secret=${env.PM_TOKEN_SECRET_KEY}\""
                 }
             }
         }
