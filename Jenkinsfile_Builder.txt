@@ -41,7 +41,7 @@ pipeline {
                 echo "Applying Terraform configuration using telmate/proxmox provider..."
                 
                 // Pass non-secret variables via -var flags
-                bat 'terraform apply -auto-approve -var="proxmox_node=pve" -var="storage_vm_disk=local-lvm" -var="vm_template_name=ubuntu-2204-cloudinit-template-swa" -var="ci_default_user=terraform"'
+                bat 'terraform apply -auto-approve -var="proxmox_node=pve" -var="storage_vm_disk=local-lvm" -var="vm_template_name=ubuntu-2204-cloudinit-template" -var="ci_default_user=terraform"'
             }
         }
 
