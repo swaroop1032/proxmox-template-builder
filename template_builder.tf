@@ -12,7 +12,7 @@ terraform {
   }
 }
 
-# Provider authentication now uses the environment variables passed from Jenkins
+# Provider authentication uses variables passed via TF_VAR_ environment variables
 provider "proxmox" {
   pm_api_url          = var.pm_api_url
   pm_api_token_id     = var.pm_api_token_id
@@ -36,7 +36,7 @@ resource "proxmox_vm_qemu" "vm_from_jenkins" {
   target_node = var.proxmox_node 
   vmid        = 0 # Proxmox will assign a free ID
 
-  # Clones from the existing template defined in your variables file
+  # Clones from the existing template
   clone = var.vm_template_name 
   
   # --- Resources ---
@@ -44,11 +44,11 @@ resource "proxmox_vm_qemu" "vm_from_jenkins" {
   sockets = 1
   memory  = 2048 
 
-  # --- Disk (Simplified structure for telmate provider) ---
+  # --- Disk ---
   disk {
     storage = var.storage_vm_disk
     type    = "scsi"
-    size    = "20G" # Set a specific size, or remove to use the template's size
+    size    = "20G" 
     boot    = 1
   }
   
@@ -58,7 +58,7 @@ resource "proxmox_vm_qemu" "vm_from_jenkins" {
     model  = "virtio"
   }
   
-  # --- Cloud-Init (Simple flat attributes) ---
+  # --- Cloud-Init ---
   ciuser    = var.ci_default_user
   ipconfig0 = "ip=dhcp"
 }
