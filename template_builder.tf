@@ -1,23 +1,26 @@
-# --- template_builder.tf (Updated for telmate/proxmox) ---
+# --- template_builder.tf (FINAL CORRECTED VERSION) ---
 terraform {
   required_providers {
     proxmox = {
       source  = "telmate/proxmox"
       version = "~> 2.9"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
-# The provider configures the connection using the variables
-# which we will pass via environment variables in Jenkins.
+# Provider authentication now uses the environment variables passed from Jenkins
 provider "proxmox" {
   pm_api_url          = var.pm_api_url
   pm_api_token_id     = var.pm_api_token_id
   pm_api_token_secret = var.pm_api_token_secret
-  pm_tls_insecure     = true 
+  pm_tls_insecure     = true
 }
 
-# We use a random suffix to ensure a unique VM name on every Jenkins run
+# Resource to generate a unique suffix for the VM name
 resource "random_string" "suffix" {
   length  = 4
   special = false
@@ -26,12 +29,12 @@ resource "random_string" "suffix" {
 }
 
 # Define the Virtual Machine resource by cloning an existing template
-# IMPORTANT: This assumes a template named "ubuntu-2204-cloudinit-template" already exists in Proxmox.
 resource "proxmox_vm_qemu" "vm_from_jenkins" { 
   # --- General Settings ---
   name        = "ubuntu-vm-jenkins-${random_string.suffix.result}"
   desc        = "Managed by Terraform and Jenkins"
-  target_node = var.proxmox_node
+  target_node = var.proxmox_node 
+  vmid        = 0 # Proxmox will assign a free ID
 
   # Clones from the existing template defined in your variables file
   clone = var.vm_template_name 
@@ -41,21 +44,21 @@ resource "proxmox_vm_qemu" "vm_from_jenkins" {
   sockets = 1
   memory  = 2048 
 
-  # --- Disk (Standard HCL block) ---
+  # --- Disk (Simplified structure for telmate provider) ---
   disk {
     storage = var.storage_vm_disk
     type    = "scsi"
-    # Setting size to 0 uses the size of the cloned template disk
-    # To resize it, you can set a specific size: size = "50G"
+    size    = "20G" # Set a specific size, or remove to use the template's size
+    boot    = 1
   }
-
+  
   # --- Network ---
   network {
+    bridge = "vmbr0" # Set to your primary Proxmox bridge
     model  = "virtio"
-    bridge = "vmbr0" # Set to your primary Proxmox bridge if different
   }
-
-  # --- Cloud-Init (Simple flat attributes for telmate provider) ---
+  
+  # --- Cloud-Init (Simple flat attributes) ---
   ciuser    = var.ci_default_user
-  ipconfig0 = "ip=dhcp" # Set to static if needed, e.g., "ip=192.168.1.10/24,gw=192.168.1.1"
+  ipconfig0 = "ip=dhcp"
 }
