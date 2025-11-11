@@ -1,4 +1,4 @@
-# --- template_builder.tf (FINAL DEFINITIVE VERSION) ---
+# --- template_builder.tf (ABSOLUTE FINAL WORKING VERSION) ---
 terraform {
   required_providers {
     proxmox = {
@@ -32,34 +32,37 @@ resource "random_string" "suffix" {
 resource "proxmox_vm_qemu" "vm_from_jenkins" { 
   # --- General Settings ---
   name        = "ubuntu-vm-jenkins-${random_string.suffix.result}"
-  description        = "Managed by Terraform and Jenkins"
+  description = "Managed by Terraform and Jenkins"
   target_node = var.proxmox_node 
-  #vmid        = 0 # Proxmox will assign a free ID
-
+  # vmid is omitted to allow Proxmox to auto-assign the next available ID
+  
   # Clones from the existing template
   clone = var.vm_template_name 
   
-  # --- Resources ---
-  cores   = 2
-  sockets = 1
-  memory  = 2048 
+  # --- Resources (FIXED DEPRECATED ARGS) ---
+  memory = 2048 
+  
+  cpu {
+    cores   = 2
+    sockets = 1
+    type    = "host" # Best practice for performance
+  }
   
   # Set the primary boot device at the resource level
   bootdisk = "scsi0" 
 
-  # --- Disk (Corrected Structure) ---
+  # --- Disk (FINAL FIXES) ---
   disk {
+    type    = "disk"             # FIXED: Must be "disk", not the bus type
     storage = var.storage_vm_disk
-    type    = "scsi"
     size    = "20G" 
-    slot    = 0 # Added slot to define disk position
-    # Removed the invalid 'boot = true' line
+    slot    = "scsi0"            # FIXED: Must be the full device name
   }
   
   # --- Network ---
   network {
     id     = 0
-    bridge = "vmbr0" # Set to your primary Proxmox bridge
+    bridge = "vmbr0" 
     model  = "virtio"
   }
   
