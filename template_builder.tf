@@ -44,12 +44,12 @@ resource "proxmox_vm_qemu" "vm_from_jenkins" {
   sockets = 1
   memory  = 2048 
 
-  # --- Disk ---
+  # --- Disk (The change is here: boot = true) ---
   disk {
     storage = var.storage_vm_disk
     type    = "scsi"
     size    = "20G" 
-    boot    = 1
+    boot    = true # CHANGED: Must be a boolean (true/false), not an integer (1/0)
   }
   
   # --- Network ---
