@@ -1,4 +1,4 @@
-# --- TEMPLATE_BUILDER.TF (FIXED: Relies entirely on ENV variables for auth) ---
+# --- TEMPLATE_BUILDER.TF (FINAL CORRECTED VERSION) ---
 terraform {
   required_providers {
     proxmox = {
@@ -10,8 +10,8 @@ terraform {
 }
 
 provider "proxmox" {
-  # NO AUTHENTICATION ARGUMENTS HERE. 
-  # Authentication is handled by PM_TOKEN_ID, PM_API_URL, etc., passed from Jenkins.
+  # FIX: The BPG provider requires a completely empty block here 
+  # and expects authentication via PM_TOKEN_ID, PM_API_URL, etc.
 }
 
 # 1. Download the latest Ubuntu 22.04 Cloud Image
