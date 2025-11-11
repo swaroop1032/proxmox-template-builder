@@ -1,4 +1,4 @@
-// --- Jenkinsfile_Builder.txt (Updated for telmate/proxmox authentication) ---
+// --- Jenkinsfile_Builder.txt (FINAL CORRECTED VERSION) ---
 pipeline {
     agent any
 
@@ -8,14 +8,18 @@ pipeline {
     }
 
     environment {
-        // Load secrets from Jenkins credentials store
-        // The telmate provider REQUIRES these specific variable names for authentication.
-        PM_API_TOKEN_ID     = credentials('PROXMOX_API_TOKEN_ID')
-        PM_API_TOKEN_SECRET = credentials('PROXMOX_API_TOKEN_SECRET')
+        // IMPORTANT: TF_VAR_ prefix makes these environment variables automatically
+        // available as Terraform input variables (e.g., var.pm_api_token_id)
 
-        // Other environment variables required by the provider
-        PM_API_URL          = "https://192.168.31.180:8006/api2/json"
-        PM_TLS_INSECURE     = "true" // Needed for self-signed certificates
+        // 1. Load secrets from Jenkins credentials store
+        TF_VAR_pm_api_token_id    = credentials('PROXMOX_API_TOKEN_ID')
+        TF_VAR_pm_api_token_secret = credentials('PROXMOX_API_TOKEN_SECRET')
+
+        // 2. Set API URL
+        TF_VAR_pm_api_url         = "https://192.168.31.180:8006/api2/json"
+        
+        // 3. Optional: Insecure flag for self-signed certs (if needed for the provider)
+        TF_VAR_pm_tls_insecure    = "true"
     }
 
     stages {
@@ -27,7 +31,8 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                // Initializes Terraform and downloads the new 'telmate/proxmox' provider
+                echo "Initializing Terraform and installing telmate/proxmox..."
+                // Initializes Terraform and downloads the telmate/proxmox provider
                 bat 'terraform init -upgrade'
             }
         }
@@ -36,15 +41,14 @@ pipeline {
             steps {
                 echo "Applying Terraform configuration using telmate/proxmox provider..."
                 
-                // Authentication is handled by the environment block above.
-                // Only pass the variable defaults that don't need to be secret:
+                // Only pass non-secret variables via -var flags
                 bat 'terraform apply -auto-approve -var="proxmox_node=pve" -var="storage_vm_disk=local-lvm" -var="vm_template_name=ubuntu-2204-cloudinit-template-swa" -var="ci_default_user=terraform"'
             }
         }
 
         stage('Verification') {
             steps {
-                echo "Verification stage skipped. Check Proxmox console for VM: ubuntu-vm-jenkins-XXXX"
+                echo "Verification step skipped. Check Proxmox console for VM creation."
             }
         }
     }
