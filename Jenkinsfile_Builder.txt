@@ -18,7 +18,7 @@ pipeline {
         // 2. Set API URL
         TF_VAR_pm_api_url         = "https://192.168.31.180:8006/api2/json"
         
-        // 3. Optional: Insecure flag for self-signed certs (if needed for the provider)
+        // 3. Optional: Insecure flag for self-signed certs (if needed)
         TF_VAR_pm_tls_insecure    = "true"
     }
 
@@ -32,7 +32,6 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 echo "Initializing Terraform and installing telmate/proxmox..."
-                // Initializes Terraform and downloads the telmate/proxmox provider
                 bat 'terraform init -upgrade'
             }
         }
@@ -41,7 +40,7 @@ pipeline {
             steps {
                 echo "Applying Terraform configuration using telmate/proxmox provider..."
                 
-                // Only pass non-secret variables via -var flags
+                // Pass non-secret variables via -var flags
                 bat 'terraform apply -auto-approve -var="proxmox_node=pve" -var="storage_vm_disk=local-lvm" -var="vm_template_name=ubuntu-2204-cloudinit-template-swa" -var="ci_default_user=terraform"'
             }
         }
