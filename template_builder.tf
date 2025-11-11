@@ -1,4 +1,4 @@
-# --- TEMPLATE_BUILDER.TF (FINAL CORRECTED VERSION FOR BPG PROVIDER SCHEMA) ---
+# --- TEMPLATE_BUILDER.TF (THE FINAL, DEFINITIVE CORRECTED VERSION FOR BPG SCHEMA) ---
 terraform {
   required_providers {
     proxmox = {
@@ -40,23 +40,32 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
     model  = "virtio"
   }
   
-  # FIX: Disk block is replaced with the device name (scsi0) as the block name.
-  # This structure is unique to the BPG provider.
-  scsi0 {
-    size           = var.template_disk_size
-    storage_pool   = var.storage_vm_disk
-    importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
+  # FIX: Correct BPG disk structure: must use a repeatable 'disk_device' block.
+  disk_device {
+    scsi { # Must specify the interface type (scsi)
+      size           = var.template_disk_size
+      storage_pool   = var.storage_vm_disk
+      importing_file = proxmox_virtual_environment_download_file.download_ubuntu_image.file_name
+    }
   }
 
   operating_system {
       type = "cloud-init"
   }
   
-  # FIX: Cloud-Init user and network configuration must be set using top-level attributes.
-  ciuser = var.ci_default_user
-  
-  ipconfig0 {
-    ip = "dhcp"
+  # FIX: Correct BPG initialization structure.
+  initialization {
+    # FIX: Cloud-init user must be in a nested block.
+    user_account {
+      username = var.ci_default_user
+    }
+    
+    # FIX: Network settings use a top-level 'ip_config' block inside initialization.
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+    }
   }
 
   template = true 
