@@ -47,7 +47,7 @@ pipeline {
         stage('Upload ISO to Proxmox') {
             steps {
                 // Ensure PROXMOX_SSH_KEY is set up as an "SSH Username with private key" credential.
-                sshagent(['PROXMOX_SSH_KEY']) { 
+                sshagent(['ssh-credential-id']) { 
                     
                     echo "Downloading ISO file: ${ISO_FILENAME}..."
                     // Downloading the ISO to the workspace
