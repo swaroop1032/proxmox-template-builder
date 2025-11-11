@@ -1,25 +1,23 @@
-// --- Jenkinsfile_Builder.txt (FINAL CORRECTED VERSION) ---
+// Jenkinsfile
 pipeline {
-    agent any
+    agent any // Runs on any available Jenkins agent
 
     tools {
-        // This 'Terraform' must match the name you configure in Jenkins Global Tool Configuration
+        // This 'terraform' must match the name you configure in Jenkins Global Tool Configuration
         terraform 'Terraform'
     }
 
     environment {
-        // IMPORTANT: TF_VAR_ prefix makes these environment variables automatically
-        // available as Terraform input variables (e.g., var.pm_api_token_id)
-
-        // 1. Load secrets from Jenkins credentials store
+        // Load secrets from Jenkins credentials store (must be configured as "Secret Text" or "Secret File")
         TF_VAR_pm_api_token_id    = credentials('PROXMOX_API_TOKEN_ID')
         TF_VAR_pm_api_token_secret = credentials('PROXMOX_API_TOKEN_SECRET')
-
-        // 2. Set API URL
-        TF_VAR_pm_api_url         = "https://192.168.31.180:8006/api2/json"
         
-        // 3. Optional: Insecure flag for self-signed certs (if needed)
-        TF_VAR_pm_tls_insecure    = "true"
+        // General variables passed to Terraform
+        TF_VAR_pm_api_url         = "https://192.168.31.180:8006/api2/json" // Your Proxmox API URL
+        TF_VAR_proxmox_node       = "pve" // Your Proxmox node name
+        
+        // This IP must be able to host your preseed.cfg file!
+        TF_VAR_preseed_url        = "http://192.168.31.200/preseed.cfg" 
     }
 
     stages {
@@ -29,25 +27,34 @@ pipeline {
             }
         }
 
-        stage('Terraform Init') {
+        stage('Template Build') {
             steps {
-                echo "Initializing Terraform and installing telmate/proxmox..."
-                bat 'terraform init -upgrade'
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                echo "Applying Terraform configuration using telmate/proxmox provider..."
+                // 1. Initialize Terraform and download the Proxmox provider
+                sh 'terraform init -upgrade'
                 
-                // Pass non-secret variables via -var flags
-                bat 'terraform apply -auto-approve -var="proxmox_node=pve" -var="storage_vm_disk=local-lvm" -var="vm_template_name=ubuntu-2204-cloudinit-template" -var="ci_default_user=terraform"'
+                // 2. Create an execution plan, passing in the required ISO file name
+                // Note: The ISO must be present on the Proxmox storage already.
+                sh 'terraform plan -out=tfplan -var="iso_file_name=local:iso/ubuntu-22.04.4-live-server-amd64.iso"'
             }
         }
-
-        stage('Verification') {
+        
+        // Since the installation takes a long time, we set a high stage timeout.
+        stage('Apply Template Build (25 Min Timeout)') {
             steps {
-                echo "Verification step skipped. Check Proxmox console for VM creation."
+                timeout(time: 25, unit: 'MINUTES') { 
+                    // This is where the long installation process occurs.
+                    // The 'local-exec' will run after the Terraform timeout expires.
+                    sh 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+        
+        stage('Cleanup (Destroy)') {
+            steps {
+                // If you want to delete the temporary VM if the template already exists,
+                // you would run a separate destroy stage here. For initial template creation, 
+                // we typically skip destroy.
+                echo 'Template build complete. Manual check required for success.'
             }
         }
     }
