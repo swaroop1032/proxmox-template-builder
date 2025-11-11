@@ -15,7 +15,7 @@ pipeline {
         PM_API_URL_VALUE      = "https://192.168.31.180:8006/api2/json" 
         
         // 3. Template name for verification
-        TF_VAR_template_name_new = "ubuntu-2204-cloudinit-template"
+        TF_VAR_template_name_new = "ubuntu-2204-cloudinit-template-swa"
     }
     
     parameters {
@@ -40,18 +40,24 @@ pipeline {
             steps {
                 echo "Downloading Cloud Image and building template: ${env.TF_VAR_template_name_new}"
                 
-                // CRITICAL FIX: Use withEnv to map local variables to the 
-                // environment variables that the bpg/proxmox provider expects.
+                // CRITICAL FIX: The required variables must be passed 
+                // via -var flags to satisfy Terraform's plan stage AND via ENV VARS for the provider.
                 withEnv([
+                    // Passed to the BPG Provider for authentication
                     "PM_API_URL=${env.PM_API_URL_VALUE}",
                     "PM_TOKEN_ID=${env.PM_TOKEN_ID_SECRET}",
                     "PM_TOKEN_SECRET=${env.PM_TOKEN_SECRET_KEY}",
-                    // The BPG provider usually defaults to secure TLS. 
-                    // If you have self-signed certs, you might need to export:
                     "PM_TLS_INSECURE=true" 
                 ]) {
-                    // Running the command in the environment with the correct auth vars
-                    bat "terraform apply -auto-approve -var=\"proxmox_node=${params.PROXMOX_NODE}\" -var=\"storage_vm_disk=${params.STORAGE_DISK}\""
+                    // Running the command with ALL required variables supplied via -var flags
+                    bat """
+                    terraform apply -auto-approve \\
+                        -var=\"proxmox_node=${params.PROXMOX_NODE}\" \\
+                        -var=\"storage_vm_disk=${params.STORAGE_DISK}\" \\
+                        -var=\"pm_api_url=${env.PM_API_URL_VALUE}\" \\
+                        -var=\"pm_api_token_id=${env.PM_TOKEN_ID_SECRET}\" \\
+                        -var=\"pm_api_token_secret=${env.PM_TOKEN_SECRET_KEY}\"
+                    """
                 }
             }
         }
